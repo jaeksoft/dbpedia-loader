@@ -65,6 +65,9 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		@Option(desc = "Buffer size", argName = "integer", hasArg = true)
 		public final Integer bufferSize = null;
 
+		@Option(desc = "Language", argName = "string", hasArg = true)
+		public final String language = null;
+
 		final static String DEFAULT_SHORT_ABSTRACT_PATH = "data/short_abstracts_en.ttl.bz2";
 
 		File getAbstractFile() {
@@ -82,6 +85,12 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 
 		int getBufferSize() {
 			return bufferSize == null ? DEFAULT_BUFFER_SIZE : bufferSize;
+		}
+
+		final static LanguageEnum DEFAULT_LANGUAGE = LanguageEnum.ENGLISH;
+
+		LanguageEnum getLanguage() {
+			return language == null ? DEFAULT_LANGUAGE : LanguageEnum.findByCode(language);
 		}
 
 	}
@@ -110,15 +119,17 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 	private final String indexName;
 	private final List<DocumentUpdate> buffer;
 	private final int bufferSize;
+	private final LanguageEnum language;
 
 	ShortAbstractLoader(JsonClient1 jsonClient, URL shortAbstractUrl, File shortAbstractFile, String indexName,
-			int bufferSize) throws IOException {
+			int bufferSize, LanguageEnum language) throws IOException {
 		super(shortAbstractFile);
 		this.jsonClient = jsonClient;
 		this.updateApi = new UpdateApi1(jsonClient);
 		this.buffer = new ArrayList<>();
 		this.indexName = indexName;
 		this.bufferSize = bufferSize;
+		this.language = language;
 		checkAbstractFile(shortAbstractUrl, shortAbstractFile);
 		load(Integer.MAX_VALUE, this);
 	}
@@ -127,7 +138,6 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		if (buffer.isEmpty())
 			return;
 		try {
-
 			updateApi.updateDocuments(indexName, buffer);
 		} catch (IOException | URISyntaxException e) {
 			throw new RuntimeException(e);
@@ -141,8 +151,8 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 			IllegalAccessException {
 		final Arguments arguments = new Parser<>(Arguments.class).parse(args);
 		new ShortAbstractLoader(new JsonClient1(arguments.instanceUrl, arguments.login, arguments.key, 300000),
-				arguments.getAbstractURL(), arguments.getAbstractFile(), arguments.indexName,
-				arguments.getBufferSize());
+				arguments.getAbstractURL(), arguments.getAbstractFile(), arguments.indexName, arguments.getBufferSize(),
+				arguments.getLanguage());
 	}
 
 	@Override
@@ -153,7 +163,7 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		if (parts == null || parts.length == 0)
 			return;
 		final String url = ttlLineReader.subject.replace("http://dbpedia.org/resource/",
-				"https://en.wikipedia.org/wiki/");
+				"https://" + language.getCode() + ".wikipedia.org/wiki/");
 		final String title = parts[parts.length - 1].replace('_', ' ');
 
 		final DocumentUpdate documentUpdate = new DocumentUpdate();
@@ -162,8 +172,8 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		documentUpdate.addField(new FieldUpdate("title", title + " - Wikipedia", 1.0f));
 		documentUpdate.addField(new FieldUpdate("content", ttlLineReader.object, 1.0f));
 		documentUpdate.addField(new FieldUpdate("contentBaseType", "text/html", 1.0f));
-		documentUpdate.addField(new FieldUpdate("host", "en.wikipedia.org", 1.0f));
-		documentUpdate.addField(new FieldUpdate("lang", LanguageEnum.ENGLISH.getCode(), 1.0f));
+		documentUpdate.addField(new FieldUpdate("host", language.getCode() + ".wikipedia.org", 1.0f));
+		documentUpdate.addField(new FieldUpdate("lang", language.getCode(), 1.0f));
 		buffer.add(documentUpdate);
 		if (buffer.size() >= bufferSize)
 			flush();
