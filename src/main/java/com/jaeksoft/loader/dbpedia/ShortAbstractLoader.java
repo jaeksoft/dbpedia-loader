@@ -62,6 +62,9 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		@Option(desc = "The optional key", argName = "string", hasArg = true)
 		public final String key = null;
 
+		@Option(desc = "Buffer size", argName = "integer", hasArg = true)
+		public final Integer bufferSize = null;
+
 		final static String DEFAULT_SHORT_ABSTRACT_PATH = "data/short_abstracts_en.ttl.bz2";
 
 		File getAbstractFile() {
@@ -73,6 +76,12 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 
 		URL getAbstractURL() throws MalformedURLException {
 			return new URL(abstractUrl == null ? DEFAULT_SHORT_ABSTRACT_URL : abstractUrl);
+		}
+
+		final static int DEFAULT_BUFFER_SIZE = 1000;
+
+		int getBufferSize() {
+			return bufferSize == null ? DEFAULT_BUFFER_SIZE : bufferSize;
 		}
 
 	}
@@ -100,14 +109,16 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 	private final UpdateApi1 updateApi;
 	private final String indexName;
 	private final List<DocumentUpdate> buffer;
+	private final int bufferSize;
 
-	ShortAbstractLoader(JsonClient1 jsonClient, URL shortAbstractUrl, File shortAbstractFile, String indexName)
-			throws IOException {
+	ShortAbstractLoader(JsonClient1 jsonClient, URL shortAbstractUrl, File shortAbstractFile, String indexName,
+			int bufferSize) throws IOException {
 		super(shortAbstractFile);
 		this.jsonClient = jsonClient;
 		this.updateApi = new UpdateApi1(jsonClient);
 		this.buffer = new ArrayList<>();
 		this.indexName = indexName;
+		this.bufferSize = bufferSize;
 		checkAbstractFile(shortAbstractUrl, shortAbstractFile);
 		load(Integer.MAX_VALUE, this);
 	}
@@ -130,7 +141,8 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 			IllegalAccessException {
 		final Arguments arguments = new Parser<>(Arguments.class).parse(args);
 		new ShortAbstractLoader(new JsonClient1(arguments.instanceUrl, arguments.login, arguments.key, 300000),
-				arguments.getAbstractURL(), arguments.getAbstractFile(), arguments.indexName);
+				arguments.getAbstractURL(), arguments.getAbstractFile(), arguments.indexName,
+				arguments.getBufferSize());
 	}
 
 	@Override
@@ -153,7 +165,7 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		documentUpdate.addField(new FieldUpdate("host", "en.wikipedia.org", 1.0f));
 		documentUpdate.addField(new FieldUpdate("lang", LanguageEnum.ENGLISH.getCode(), 1.0f));
 		buffer.add(documentUpdate);
-		if (buffer.size() >= 20000)
+		if (buffer.size() >= bufferSize)
 			flush();
 	}
 }
