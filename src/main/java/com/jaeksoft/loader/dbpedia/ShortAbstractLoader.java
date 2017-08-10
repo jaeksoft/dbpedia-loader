@@ -150,7 +150,7 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 			throws IOException, URISyntaxException, NoSuchMethodException, ParseException, InstantiationException,
 			IllegalAccessException {
 		final Arguments arguments = new Parser<>(Arguments.class).parse(args);
-		new ShortAbstractLoader(new JsonClient1(arguments.instanceUrl, arguments.login, arguments.key, 300000),
+		new ShortAbstractLoader(new JsonClient1(arguments.instanceUrl, arguments.login, arguments.key, 10 * 60 * 1000),
 				arguments.getAbstractURL(), arguments.getAbstractFile(), arguments.indexName, arguments.getBufferSize(),
 				arguments.getLanguage());
 	}
@@ -162,12 +162,13 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		final String[] parts = StringUtils.split(ttlLineReader.subject, '/');
 		if (parts == null || parts.length == 0)
 			return;
-		final String url = ttlLineReader.subject.replace("http://dbpedia.org/resource/",
-				"https://" + language.getCode() + ".wikipedia.org/wiki/");
+		final String urlReplace = "https://" + language.getCode() + ".wikipedia.org/wiki/";
+		final String url = ttlLineReader.subject.replace("http://dbpedia.org/resource/", urlReplace).replace(
+				"http://" + language.getCode() + ".dbpedia.org/resource/", urlReplace);
 		final String title = parts[parts.length - 1].replace('_', ' ');
 
 		final DocumentUpdate documentUpdate = new DocumentUpdate();
-		documentUpdate.setLang(LanguageEnum.ENGLISH);
+		documentUpdate.setLang(language);
 		documentUpdate.addField(new FieldUpdate("url", url, 1.0f));
 		documentUpdate.addField(new FieldUpdate("title", title + " - Wikipedia", 1.0f));
 		documentUpdate.addField(new FieldUpdate("content", ttlLineReader.object, 1.0f));
