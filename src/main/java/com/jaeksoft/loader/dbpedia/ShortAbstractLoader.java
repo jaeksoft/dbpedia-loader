@@ -132,6 +132,7 @@ public class ShortAbstractLoader extends TtlLoader implements Consumer<TtlLineRe
 		this.language = language;
 		checkAbstractFile(shortAbstractUrl, shortAbstractFile);
 		load(Integer.MAX_VALUE, this);
+		flush();
 	}
 
 	synchronized void flush() {
